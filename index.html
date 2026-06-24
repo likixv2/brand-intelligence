@@ -588,6 +588,26 @@ var GROQ_KEY = localStorage.getItem('groq_key') || '';
 var queueItems = [];
 var queueCount = 0;
 var storyAdded = {};
+var TG_TOKEN = '8758843875:AAFzyXoKxZjiYoDgiTlnTCJudYk5GSkEzKg';
+var TG_CHAT  = '6239454161';
+
+async function sendToTelegram(d) {
+  var msg = '📲 Brand Intel — Story Queue\n\n'
+    + d.stag + ' ' + d.hl + '\n\n'
+    + d.text + '\n\n'
+    + 'Your caption: ' + d.context + '\n\n'
+    + 'Post this on your Instagram Story!';
+  try {
+    var r = await fetch('https://api.telegram.org/bot' + TG_TOKEN + '/sendMessage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TG_CHAT, text: msg })
+    });
+    var res = await r.json();
+    if (res.ok) { showToast('✓ Sent to your Telegram!'); }
+    else { showToast('Telegram error: ' + res.description); }
+  } catch(e) { showToast('Could not reach Telegram'); }
+}
 
 var tweetData = [
   { sig: 'viral', handle: '@karpathy', text: '"Most people use AI like a search engine. The real unlock is treating it like a thinking partner that never gets tired."', context: 'This is exactly the mindset shift I had. It changes how you use every AI tool.', hl: "You're using AI wrong — here's the shift that changes everything", stag: '💡 AI Mindset' },
@@ -654,7 +674,7 @@ function renderQueue() {
   document.getElementById('q-count').textContent = queueItems.length + ' item' + (queueItems.length !== 1 ? 's' : '');
   if (!queueItems.length) { el.innerHTML = '<div style="font-size:13px; color: var(--text3); padding: 20px 0;">No items yet.</div>'; return; }
   el.innerHTML = queueItems.map(function(d, i) {
-    return '<div class="card" style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="sig sig-'+d.sig+'" style="font-size:11px">'+d.sig.charAt(0).toUpperCase()+d.sig.slice(1)+'</span><span style="font-size:12px;color:var(--text3)">'+d.handle+'</span><span style="margin-left:auto;font-size:12px;color:var(--text3)">Score '+(88+i*3)+'</span></div><div style="font-size:13px;line-height:1.6;margin-bottom:10px">'+d.text+'</div><div class="tweet-why" style="margin-bottom:10px"><b>Your caption:</b> '+d.context+'</div><div class="story-preview"><span class="story-stag">'+d.stag+'</span><div class="story-hl">'+d.hl+'</div><div class="story-ctx">Curated by you · Stay ahead of AI</div><button class="story-cta">Swipe up ↑</button></div><div class="btn-row" style="margin-top:10px"><button class="btn btn-primary btn-sm">Approve &amp; send to phone</button><button class="btn btn-ghost btn-sm">Edit caption</button><button class="btn btn-danger btn-sm" onclick="removeFromQueue('+i+')">Dismiss</button></div></div>';
+    return '<div class="card" style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="sig sig-'+d.sig+'" style="font-size:11px">'+d.sig.charAt(0).toUpperCase()+d.sig.slice(1)+'</span><span style="font-size:12px;color:var(--text3)">'+d.handle+'</span><span style="margin-left:auto;font-size:12px;color:var(--text3)">Score '+(88+i*3)+'</span></div><div style="font-size:13px;line-height:1.6;margin-bottom:10px">'+d.text+'</div><div class="tweet-why" style="margin-bottom:10px"><b>Your caption:</b> '+d.context+'</div><div class="story-preview"><span class="story-stag">'+d.stag+'</span><div class="story-hl">'+d.hl+'</div><div class="story-ctx">Curated by you · Stay ahead of AI</div><button class="story-cta">Swipe up ↑</button></div><div class="btn-row" style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="sendToTelegram(queueItems['+i+'])">📲 Approve &amp; send to Telegram</button><button class="btn btn-ghost btn-sm">Edit caption</button><button class="btn btn-danger btn-sm" onclick="removeFromQueue('+i+')">Dismiss</button></div></div>';
   }).join('');
 }
 
