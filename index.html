@@ -716,7 +716,8 @@ async function generateTweets() {
     var p = JSON.parse(raw.replace(/```json|```/g,'').trim());
     document.getElementById('tweet-drafts').innerHTML = (p.drafts||[]).map(function(d,i){
       var len = (d.text||'').length;
-      return '<div class="draft-box"><div class="draft-top"><span class="draft-num">Draft '+(i+1)+'</span><span class="tag tag-accent" style="font-size:11px">'+d.tag+'</span><span class="draft-score">'+d.score+'/100</span></div><div class="draft-text">'+d.text+'</div><div class="char-count'+(len>280?' over':'')+'">'+len+' / 280</div><div class="draft-hook">'+d.hook+'</div><div class="btn-row"><button class="btn btn-primary btn-sm" onclick="copyText(this, `'+d.text.replace(/`/g,"'")+``)">Copy</button><button class="btn btn-ghost btn-sm">Refine</button></div></div>`;
+      var safeText = (d.text||'').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      return '<div class="draft-box"><div class="draft-top"><span class="draft-num">Draft '+(i+1)+'</span><span class="tag tag-accent" style="font-size:11px">'+d.tag+'</span><span class="draft-score">'+d.score+'/100</span></div><div class="draft-text">'+d.text+'</div><div class="char-count'+(len>280?' over':'')+'">'+len+' / 280</div><div class="draft-hook">'+d.hook+'</div><div class="btn-row"><button class="btn btn-primary btn-sm" onclick="copyText(this, \''+safeText+'\')">Copy</button><button class="btn btn-ghost btn-sm">Refine</button></div></div>';
     }).join('');
     document.getElementById('compose-result').style.display = 'block';
   } catch(e) {
