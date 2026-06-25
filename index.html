@@ -588,7 +588,7 @@ var GROQ_KEY = localStorage.getItem('groq_key') || '';
 var queueItems = [];
 var queueCount = 0;
 var storyAdded = {};
-var TG_TOKEN = '8758843875:AAFzyXoKxZjiYoDgiTInTCJudYk5GSkEzKg';
+var TG_TOKEN = '8758843875:AAFzyXoKxZjiYoDgiTlnTCJudYk5GSkEzKg';
 var TG_CHAT  = '6239454161';
 
 async function sendToTelegram(d) {
@@ -596,7 +596,8 @@ async function sendToTelegram(d) {
     + d.stag + ' ' + d.hl + '\n\n'
     + d.text + '\n\n'
     + 'Your caption: ' + d.context + '\n\n'
-    + 'Post this on your Instagram Story!';
+    + '🔗 Tweet link: ' + (d.url || 'https://x.com') + '\n\n'
+    + 'Screenshot the tweet and post to your Instagram Story!';
   try {
     var r = await fetch('https://api.telegram.org/bot' + TG_TOKEN + '/sendMessage', {
       method: 'POST',
@@ -610,10 +611,10 @@ async function sendToTelegram(d) {
 }
 
 var tweetData = [
-  { sig: 'viral', handle: '@karpathy', text: '"Most people use AI like a search engine. The real unlock is treating it like a thinking partner that never gets tired."', context: 'This is exactly the mindset shift I had. It changes how you use every AI tool.', hl: "You're using AI wrong — here's the shift that changes everything", stag: '💡 AI Mindset' },
-  { sig: 'launch', handle: '@sama', text: '"We\'re shipping o4 with tool use and long context next week. This changes agentic workflows significantly."', context: 'o4 lands next week. Agentic AI is about to get a lot more capable. Sharing this for anyone building with AI agents.', hl: 'o4 is dropping next week — and it changes everything for AI agents', stag: '🤖 AI News' },
-  { sig: 'debate', handle: '@paulg', text: '"Founders who refuse to use AI in their workflow will be outcompeted within 18 months."', context: 'Paul Graham says what most are thinking. The AI advantage window is open — but not forever.', hl: 'PG: Founders ignoring AI will be outcompeted in 18 months', stag: '🚀 Founder Take' },
-  { sig: 'insight', handle: '@emollick', text: '"AI brainstorming → 40% more ideas, 15% fewer make it to implementation. The quantity vs quality tradeoff is real."', context: 'Research-backed. Worth knowing if you\'re using AI to think, not just write.', hl: 'AI generates more ideas — but fewer survive to shipping', stag: '📊 Research' }
+  { sig: 'viral', handle: '@karpathy', url: 'https://x.com/karpathy', text: '"Most people use AI like a search engine. The real unlock is treating it like a thinking partner that never gets tired."', context: 'This is exactly the mindset shift I had. It changes how you use every AI tool.', hl: "You're using AI wrong — here's the shift that changes everything", stag: '💡 AI Mindset' },
+  { sig: 'launch', handle: '@sama', url: 'https://x.com/sama', text: '"We\'re shipping o4 with tool use and long context next week. This changes agentic workflows significantly."', context: 'o4 lands next week. Agentic AI is about to get a lot more capable. Sharing this for anyone building with AI agents.', hl: 'o4 is dropping next week — and it changes everything for AI agents', stag: '🤖 AI News' },
+  { sig: 'debate', handle: '@paulg', url: 'https://x.com/paulg', text: '"Founders who refuse to use AI in their workflow will be outcompeted within 18 months."', context: 'Paul Graham says what most are thinking. The AI advantage window is open — but not forever.', hl: 'PG: Founders ignoring AI will be outcompeted in 18 months', stag: '🚀 Founder Take' },
+  { sig: 'insight', handle: '@emollick', url: 'https://x.com/emollick', text: '"AI brainstorming → 40% more ideas, 15% fewer make it to implementation. The quantity vs quality tradeoff is real."', context: 'Research-backed. Worth knowing if you\'re using AI to think, not just write.', hl: 'AI generates more ideas — but fewer survive to shipping', stag: '📊 Research' }
 ];
 
 if (GROQ_KEY) {
