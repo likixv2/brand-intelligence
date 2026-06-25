@@ -429,71 +429,15 @@ textarea::placeholder { color: var(--text3); }
         </div>
       </div>
 
-      <div class="sec">High-signal feed · refreshed 12 min ago</div>
-
-      <div class="tweet-card viral">
-        <div class="tweet-meta">
-          <div class="avatar av-accent">AK</div>
-          <span class="tweet-handle">@karpathy</span>
-          <span class="sig sig-viral">Viral</span>
-          <span class="tweet-time">2h ago</span>
-        </div>
-        <div class="tweet-body">"Most people use AI like a search engine. The real unlock is treating it like a thinking partner that never gets tired and has read everything."</div>
-        <div class="tweet-why"><b>Why it matters:</b> Reframes the mental model of AI. 12k likes in 2h — high engagement, strong opinion people want to react to.</div>
-        <div class="btn-row">
-          <button class="btn btn-primary btn-sm" onclick="addToQueue(0)">Add to Story queue</button>
-          <button class="btn btn-ghost btn-sm" onclick="prefillCompose('My take on using AI as a thinking partner, not a search engine')">Draft reply</button>
-          <div class="engage">❤️ 12.4k · 🔁 3.1k</div>
-        </div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin: 22px 0 10px;">
+        <div class="sec" style="margin:0" id="feed-label">High-signal feed · loading…</div>
+        <button class="btn btn-ghost btn-sm" onclick="loadFeed()">↻ Refresh</button>
       </div>
-
-      <div class="tweet-card launch">
-        <div class="tweet-meta">
-          <div class="avatar av-green">SA</div>
-          <span class="tweet-handle">@sama</span>
-          <span class="sig sig-launch">Launch</span>
-          <span class="tweet-time">4h ago</span>
-        </div>
-        <div class="tweet-body">"We're shipping o4 with tool use and long context next week. This changes agentic workflows significantly."</div>
-        <div class="tweet-why"><b>Why it matters:</b> Product announcement from OpenAI CEO. First-mover opportunity — your audience hears it through you.</div>
-        <div class="btn-row">
-          <button class="btn btn-primary btn-sm" onclick="addToQueue(1)">Add to Story queue</button>
-          <button class="btn btn-ghost btn-sm" onclick="prefillCompose('My take on o4 launching with tool use and long context for AI agents')">Draft take</button>
-          <div class="engage">❤️ 29.8k · 🔁 8.2k</div>
-        </div>
+      <div class="loading show" id="feed-loading">
+        <div class="dots"><span></span><span></span><span></span></div>
+        Fetching real tweets from X…
       </div>
-
-      <div class="tweet-card debate">
-        <div class="tweet-meta">
-          <div class="avatar av-amber">PG</div>
-          <span class="tweet-handle">@paulg</span>
-          <span class="sig sig-debate">Debate</span>
-          <span class="tweet-time">6h ago</span>
-        </div>
-        <div class="tweet-body">"Founders who refuse to use AI in their workflow will be outcompeted within 18 months. This isn't optional anymore."</div>
-        <div class="tweet-why"><b>Why it matters:</b> Controversial take splitting the founder community. 400+ reply threads active — strong discussion-starter.</div>
-        <div class="btn-row">
-          <button class="btn btn-primary btn-sm" onclick="addToQueue(2)">Add to Story queue</button>
-          <button class="btn btn-ghost btn-sm" onclick="prefillCompose('My take on Paul Graham saying founders who ignore AI will be outcompeted in 18 months')">Add your take</button>
-          <div class="engage">❤️ 7.2k · 🔁 2.9k</div>
-        </div>
-      </div>
-
-      <div class="tweet-card insight">
-        <div class="tweet-meta">
-          <div class="avatar av-teal">EM</div>
-          <span class="tweet-handle">@emollick</span>
-          <span class="sig sig-insight">Research</span>
-          <span class="tweet-time">1d ago</span>
-        </div>
-        <div class="tweet-body">"New study: Teams using AI for brainstorming produce 40% more novel ideas but 15% fewer make it to implementation. Quantity vs quality tradeoff is real."</div>
-        <div class="tweet-why"><b>Why it matters:</b> Research-backed insight from a credible academic. Builders and creators in your audience will find this practically useful.</div>
-        <div class="btn-row">
-          <button class="btn btn-primary btn-sm" onclick="addToQueue(3)">Add to Story queue</button>
-          <button class="btn btn-ghost btn-sm" onclick="prefillCompose('My perspective on AI brainstorming producing more ideas but fewer making it to implementation')">Share perspective</button>
-          <div class="engage">❤️ 5.6k · 🔁 1.8k</div>
-        </div>
-      </div>
+      <div id="live-feed"></div>
 
       <div class="sec">Delivery channel</div>
       <div class="card">
@@ -637,6 +581,76 @@ function showPanel(i, el) {
   document.querySelectorAll('.panel').forEach(function(p,j){ p.classList.toggle('active', j===i); });
   document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
   el.classList.add('active');
+  if (i === 1 && document.getElementById('live-feed').innerHTML === '') loadFeed();
+}
+
+var liveTweets = [];
+
+async function loadFeed() {
+  document.getElementById('feed-loading').classList.add('show');
+  document.getElementById('feed-label').textContent = 'High-signal feed · loading…';
+  document.getElementById('live-feed').innerHTML = '';
+  try {
+    var res = await fetch('/api/feed');
+    var data = await res.json();
+    liveTweets = data.tweets || [];
+    if (liveTweets.length === 0) {
+      document.getElementById('live-feed').innerHTML = '<div style="font-size:13px;color:var(--text3);padding:16px 0;">' + (data.error || 'No tweets found. Nitter may be temporarily down — try refreshing.') + '</div>';
+    } else {
+      renderFeed();
+      document.getElementById('feed-label').textContent = 'High-signal feed · ' + liveTweets.length + ' tweets · just now';
+    }
+  } catch(e) {
+    document.getElementById('live-feed').innerHTML = '<div style="font-size:13px;color:var(--text3);padding:16px 0;">Could not load feed. Make sure the app is deployed on Vercel.</div>';
+  }
+  document.getElementById('feed-loading').classList.remove('show');
+}
+
+function renderFeed() {
+  var avColors = ['av-accent','av-green','av-amber','av-teal'];
+  document.getElementById('live-feed').innerHTML = liveTweets.map(function(t, i) {
+    var initials = t.handle.replace('@','').slice(0,2).toUpperCase();
+    var av = avColors[i % avColors.length];
+    var timeStr = t.hoursAgo < 1 ? 'just now' : t.hoursAgo < 24 ? t.hoursAgo + 'h ago' : Math.floor(t.hoursAgo/24) + 'd ago';
+    var safeText = t.text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    var safeUrl = (t.url || '').replace(/'/g, "\\'");
+    return '<div class="tweet-card ' + t.sig + '">'
+      + '<div class="tweet-meta">'
+      + '<div class="avatar ' + av + '">' + initials + '</div>'
+      + '<span class="tweet-handle">' + t.handle + '</span>'
+      + '<span class="sig sig-' + t.sig + '">' + t.sig.charAt(0).toUpperCase() + t.sig.slice(1) + '</span>'
+      + '<span class="tweet-time">' + timeStr + '</span>'
+      + '</div>'
+      + '<div class="tweet-body">' + t.text + '</div>'
+      + '<div class="btn-row">'
+      + '<button class="btn btn-primary btn-sm" onclick="addLiveTweetToQueue(' + i + ')">Add to Story queue</button>'
+      + '<button class="btn btn-ghost btn-sm" onclick="prefillCompose(\'' + safeText.slice(0,60) + '...\')">Draft take</button>'
+      + '<a href="' + t.url + '" target="_blank" class="btn btn-ghost btn-sm">Open tweet ↗</a>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function addLiveTweetToQueue(idx) {
+  var t = liveTweets[idx];
+  if (!t) return;
+  if (storyAdded['live_' + idx]) { showToast('Already in queue'); return; }
+  storyAdded['live_' + idx] = true;
+  queueCount++;
+  queueItems.push({
+    sig: t.sig,
+    handle: t.handle,
+    url: t.url,
+    text: t.text,
+    context: 'Sharing this because it matters for anyone building with AI.',
+    hl: t.text.slice(0, 60) + '…',
+    stag: t.sig === 'launch' ? '🤖 AI News' : t.sig === 'debate' ? '🚀 Hot Take' : t.sig === 'insight' ? '📊 Research' : '💡 Insight'
+  });
+  renderQueue();
+  var badge = document.getElementById('q-badge');
+  badge.style.display = 'inline-flex';
+  badge.textContent = queueCount;
+  showToast('✓ Added to Story queue');
 }
 
 function pickTone(btn) {
