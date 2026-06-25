@@ -12,19 +12,17 @@ function classifyTweet(text) {
 function processTweets(items) {
   return items
     .filter(item => {
-      const text = item.text || item.full_text || item.tweetText || '';
-      return text.length > 20 && !text.startsWith('RT @');
+      const text = item.text || item.full_text || '';
+      return text.length > 20 && !item.isRetweet && !item.isQuote;
     })
     .map(item => {
-      const text = item.text || item.full_text || item.tweetText || '';
-      const handle = '@' + (item.author?.userName || item.author?.username || item.user?.screen_name || item.screenName || 'unknown');
-      const tweetId = item.id || item.tweetId || item.id_str || '';
-      const url = item.url || item.tweetUrl ||
-        (tweetId ? `https://x.com/${handle.replace('@','')}/status/${tweetId}` : `https://x.com/${handle.replace('@','')}`);
-      const createdAt = item.createdAt || item.created_at || item.timestamp_ms || '';
+      const text = item.text || item.full_text || '';
+      const handle = '@' + (item.author?.userName || item.author?.username || 'unknown');
+      const url = item.twitterUrl || item.url || `https://x.com/${handle.replace('@','')}/status/${item.id}`;
+      const createdAt = item.createdAt || '';
       const date = new Date(createdAt);
       const hoursAgo = isNaN(date.getTime()) ? 12 : Math.round((Date.now() - date.getTime()) / 3600000);
-      const score = Math.max(0, 100 - hoursAgo * 2) + Math.min(30, text.length / 5);
+      const score = Math.max(0, 100 - hoursAgo * 2) + Math.min(30, text.length / 5) + Math.min(20, (item.likeCount || 0) / 100);
       return { handle, text, url, hoursAgo, score: Math.round(score), sig: classifyTweet(text) };
     })
     .sort((a, b) => b.score - a.score)
@@ -40,9 +38,9 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // Check for recent successful run (within 3 hours)
+    // Check for recent successful run within 3 hours
     const runsRes = await fetch(
-      `https://api.apify.com/v2/acts/apidojo~twitter-scraper-lite/runs?token=${APIFY_TOKEN}&limit=1&status=SUCCEEDED`,
+      `https://api.apify.com/v2/acts/apidojo~tweet-scraper/runs?token=${APIFY_TOKEN}&limit=1&status=SUCCEEDED`,
       { signal: AbortSignal.timeout(8000) }
     );
     const runsData = await runsRes.json();
@@ -65,16 +63,15 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // Start fresh run using startUrls (profile URLs)
-    const startUrls = ACCOUNTS.map(a => ({ url: `https://x.com/${a}` }));
+    // Start fresh run with correct input for apidojo/tweet-scraper
     await fetch(
-      `https://api.apify.com/v2/acts/apidojo~twitter-scraper-lite/runs?token=${APIFY_TOKEN}`,
+      `https://api.apify.com/v2/acts/apidojo~tweet-scraper/runs?token=${APIFY_TOKEN}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          startUrls,
-          maxTweets: 5,
+          twitterHandles: ACCOUNTS,
+          maxTweets: 8,
           queryType: 'Latest'
         }),
         signal: AbortSignal.timeout(8000)
