@@ -1,66 +1,5 @@
-const ACCOUNTS = ['karpathy','sama','paulg','emollick','lennysan','naval','svpino','rowancheung'];
-
-const RSSHUB_INSTANCES = [
-  'https://rsshub.app',
-  'https://rss.shab.fun',
-  'https://rsshub.rssforever.com'
-];
-
-async function fetchRSS(account) {
-  for (const instance of RSSHUB_INSTANCES) {
-    try {
-      const url = `${instance}/twitter/user/${account}`;
-      const res = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BrandIntel/1.0)' },
-        signal: AbortSignal.timeout(6000)
-      });
-      if (!res.ok) continue;
-      const xml = await res.text();
-      if (xml.includes('<item>')) return { xml, account };
-    } catch (e) {
-      continue;
-    }
-  }
-  // fallback: try nitter
-  const NITTER = ['https://nitter.privacydev.net','https://nitter.poast.org','https://lightbrd.com','https://nitter.mint.lgbt'];
-  for (const n of NITTER) {
-    try {
-      const res = await fetch(`${n}/${account}/rss`, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-        signal: AbortSignal.timeout(5000)
-      });
-      if (!res.ok) continue;
-      const xml = await res.text();
-      if (xml.includes('<item>')) return { xml, account };
-    } catch(e) { continue; }
-  }
-  return null;
-}
-
-function parseItems(xml, account) {
-  const items = [];
-  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-  let match;
-  while ((match = itemRegex.exec(xml)) !== null) {
-    const item = match[1];
-    const title = (item.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/) || item.match(/<title>([\s\S]*?)<\/title>/))?.[1]?.trim() || '';
-    const link = (item.match(/<link>([\s\S]*?)<\/link>/) || item.match(/<guid[^>]*>([\s\S]*?)<\/guid>/))?.[1]?.trim() || '';
-    const pubDate = item.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1]?.trim() || '';
-    if (!title || title.startsWith('RT by') || title.startsWith('R to')) continue;
-    const text = title.replace(/^@\w+:\s*/, '').replace(/<[^>]+>/g, '').trim();
-    if (!text || text.length < 20) continue;
-    // convert any domain to x.com link
-    let tweetUrl = link.replace(/https?:\/\/[^/]*(nitter|rsshub)[^/]*\//, 'https://x.com/');
-    if (!tweetUrl.includes('x.com') && !tweetUrl.includes('twitter.com')) {
-      tweetUrl = `https://x.com/${account}`;
-    }
-    const date = new Date(pubDate);
-    const hoursAgo = isNaN(date) ? 24 : (Date.now() - date.getTime()) / 3600000;
-    const score = Math.max(0, 100 - hoursAgo * 2) + Math.min(30, text.length / 5);
-    items.push({ handle: '@' + account, text, url: tweetUrl, hoursAgo: Math.round(hoursAgo), score: Math.round(score) });
-  }
-  return items.slice(0, 3);
-}
+const APIFY_TOKEN = 'apify_api_KiXWgab4aA4Vbg3XTC0fhZ6XY3cZ040VoMrv';
+const ACCOUNTS = ['karpathy', 'sama', 'paulg', 'emollick', 'lennysan', 'naval', 'svpino', 'rowancheung'];
 
 function classifyTweet(text) {
   const t = text.toLowerCase();
@@ -73,20 +12,71 @@ function classifyTweet(text) {
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 's-maxage=600');
+
   try {
-    const results = await Promise.allSettled(ACCOUNTS.map(fetchRSS));
-    let allTweets = [];
-    for (const result of results) {
-      if (result.status !== 'fulfilled' || !result.value) continue;
-      const { xml, account } = result.value;
-      allTweets = allTweets.concat(parseItems(xml, account));
+    // Start Apify actor run
+    const runRes = await fetch(
+      'https://api.apify.com/v2/acts/apidojo~tweet-scraper/runs?token=' + APIFY_TOKEN,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          twitterHandles: ACCOUNTS,
+          maxTweets: 5,
+          addUserInfo: false,
+          startUrls: []
+        }),
+        signal: AbortSignal.timeout(25000)
+      }
+    );
+
+    const runData = await runRes.json();
+    const runId = runData?.data?.id;
+
+    if (!runId) {
+      return res.status(200).json({ tweets: [], error: 'Could not start Apify run: ' + JSON.stringify(runData) });
     }
-    allTweets.sort((a, b) => b.score - a.score);
-    allTweets = allTweets.map(t => ({ ...t, sig: classifyTweet(t.text) }));
-    if (allTweets.length === 0) {
-      return res.status(200).json({ tweets: [], error: 'All RSS sources are temporarily down. Try again in a few minutes.' });
+
+    // Wait for run to finish (poll every 3 seconds, max 20 seconds)
+    let status = 'RUNNING';
+    let attempts = 0;
+    while (status === 'RUNNING' && attempts < 7) {
+      await new Promise(r => setTimeout(r, 3000));
+      const statusRes = await fetch(
+        `https://api.apify.com/v2/acts/apidojo~tweet-scraper/runs/${runId}?token=${APIFY_TOKEN}`
+      );
+      const statusData = await statusRes.json();
+      status = statusData?.data?.status;
+      attempts++;
     }
-    return res.status(200).json({ tweets: allTweets.slice(0, 15) });
+
+    // Fetch results from dataset
+    const dataRes = await fetch(
+      `https://api.apify.com/v2/acts/apidojo~tweet-scraper/runs/${runId}/dataset/items?token=${APIFY_TOKEN}&limit=50`
+    );
+    const items = await dataRes.json();
+
+    if (!items || !items.length) {
+      return res.status(200).json({ tweets: [], error: 'No tweets returned from Apify.' });
+    }
+
+    let tweets = items
+      .filter(item => item.text && item.text.length > 20 && !item.text.startsWith('RT @'))
+      .map(item => {
+        const handle = '@' + (item.author?.userName || item.user?.screen_name || 'unknown');
+        const text = item.text || '';
+        const url = item.url || item.tweetUrl || `https://x.com/${handle.replace('@', '')}/status/${item.id}`;
+        const createdAt = item.createdAt || item.created_at || '';
+        const date = new Date(createdAt);
+        const hoursAgo = isNaN(date) ? 12 : Math.round((Date.now() - date.getTime()) / 3600000);
+        const score = Math.max(0, 100 - hoursAgo * 2) + Math.min(30, text.length / 5);
+        return { handle, text, url, hoursAgo, score: Math.round(score), sig: classifyTweet(text) };
+      });
+
+    tweets.sort((a, b) => b.score - a.score);
+
+    return res.status(200).json({ tweets: tweets.slice(0, 15) });
+
   } catch (e) {
     return res.status(500).json({ error: e.message, tweets: [] });
   }
