@@ -1,4 +1,4 @@
-const APIFY_TOKEN = 'apify_api_KiXWgab4aA4Vbg3XTC0fhZ6XY3cZ040VoMrv';
+const APIFY_TOKEN = process.env.APIFY_TOKEN;
 const ACCOUNTS = ['karpathy', 'sama', 'paulg', 'emollick', 'lennysan', 'naval', 'svpino', 'rowancheung'];
 
 function classifyTweet(text) {
